@@ -9,42 +9,92 @@
 double wheelDiameter = 2;
 double wheelCircumference = wheelDiameter * M_PI;            // C = D * pi
 const double DEGREES_TO_INCHES = wheelCircumference / 360.0; // New constant
+constexpr double DEG_TO_RAD = M_PI / 180.0;
 
-void lcd_loop_task() {
-  pros::lcd::initialize();
-  vertical_encoder.reset_position();
-  double thetaOld = 0;
-  double yOld = 0;
-  double totalDistance = 0;
+// --- Global variables for robot's position (Pose) ---
+volatile double globalX = 0.0;
+volatile double globalY = 0.0;
+volatile double globalAngle = 0.0; // In degrees
 
-  // 1. Wait here until the IMU is actually done calibrating.
+/**
+ * Task for Odometry Calculations.
+ * Runs at a high frequency to accurately track the robot's position.
+ */
+void odometry_task() {
   while (imu.is_calibrating()) {
-    pros::delay(20); // Wait in small intervals
+    pros::delay(20);
   }
 
+  // Variables to store the previous sensor values
+  double lastVertical = 0;
+  double lastHorizontal = 0;
+  double lastAngle = imu.get_rotation();
+
   while (true) {
-    int yNew = vertical_encoder.get_position() / 100; // convert to degrees
-    double yDiff = yNew - yOld;                       // Get change in rotation
-    double yDist = yDiff * DEGREES_TO_INCHES;
-    totalDistance += yDist;
+    // 1. Get current sensor values
+    double currentVertical = vertical_encoder.get_position();
+    double currentHorizontal = horizontal_encoder.get_position();
+    globalAngle = imu.get_rotation();
 
-    double thetaNew = imu.get_rotation();
-    double thetaDiff = thetaNew - thetaOld;
+    // 2. Calculate the change (delta) in sensor values
+    double deltaVertical = (currentVertical - lastVertical) * DEGREES_TO_INCHES;
+    double deltaHorizontal =
+        (currentHorizontal - lastHorizontal) * DEGREES_TO_INCHES;
+    double deltaAngle = globalAngle - lastAngle;
 
-    if (pros::lcd::is_initialized()) {
-      pros::lcd::print(0, "distance: %.2f", totalDistance);
-      pros::lcd::print(1, "rotation: %.2f", thetaDiff); // Use %.2f for
-    }
+    // 3. Calculate the average heading for this loop cycle
+    double avgAngleRad =
+        (lastAngle + deltaAngle * 0.5) * DEG_TO_RAD; // Convert to Radians
 
-    thetaOld = thetaNew;
-    yOld = yNew;
+    // 4. Rotate the local movement vector to the global frame
+    double deltaX = (deltaHorizontal * std::cos(avgAngleRad)) -
+                    (deltaVertical * std::sin(avgAngleRad));
+    double deltaY = (deltaHorizontal * std::sin(avgAngleRad)) +
+                    (deltaVertical * std::cos(avgAngleRad));
+
+    // 5. Update the global position
+    globalX += deltaX;
+    globalY += deltaY;
+
+    // 6. Update the "last" values for the next loop
+    lastVertical = currentVertical;
+    lastHorizontal = currentHorizontal;
+    lastAngle = globalAngle;
+
     pros::delay(10);
   }
 }
 
+/**
+ * Task for drawing to the LCD screen.
+ * Its only responsibility is to display the robot's current pose.
+ */
+void lcd_loop_task() {
+  pros::lcd::initialize();
+
+  while (true) {
+    // Check if the screen is working before trying to print
+    if (pros::lcd::is_initialized()) {
+      // Read the global variables that are updated by the odometry_task
+      pros::lcd::print(0, "X: %.2f in", globalX);
+      pros::lcd::print(1, "Y: %.2f in", globalY);
+      pros::lcd::print(2, "Angle: %.2f deg", globalAngle);
+    }
+
+    // Update the screen every 50-100 milliseconds is plenty for a display
+    pros::delay(50);
+  }
+}
+
 void initialize() {
-  pros::Task LCD_loop = pros::Task(lcd_loop_task, "LCD Task");
-  imu.reset(true);
+  imu.reset(false);
+  // CRITICAL STEP: Reset all odometry sensors to a known state of zero.
+  vertical_encoder.reset_position();
+  horizontal_encoder.reset_position();
+
+  // Start the two tasks to run in the background
+  pros::Task odom_task_handle(odometry_task, "Odometry Task");
+  pros::Task lcd_task_handle(lcd_loop_task, "LCD Task");
 }
 
 void disabled() {}
@@ -65,6 +115,7 @@ constexpr double CD_SENSITIVITY = 1.0;        // overall turn sensitivity
 constexpr double DRIVE_DEADBAND = 0.02;       // ignore tiny joystick noise
 constexpr double DRIVE_SLEW = 0.02;           // max throttle change per tick
 constexpr double PI = M_PI;
+
 // We apply a sinusoidal curve (twice) to the joystick input to give finer
 // control at small inputs.
 static double _turnRemapping(double iturn) {
