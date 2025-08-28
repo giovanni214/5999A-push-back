@@ -1,5 +1,6 @@
 #include "config.h"
 #include "drive.h"
+#include "main.h" // always include main.h
 
 void opcontrol() {
   int mode = 0;
