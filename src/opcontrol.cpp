@@ -1,14 +1,20 @@
 #include "config.h"
-#include "drive.h"
+// #include "drive.h" needed for cheesy drive
 #include "main.h" // always include main.h
+#include "pros/misc.h"
 
 void opcontrol() {
   int mode = 0;
   while (true) {
-    int raw_throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-    int raw_turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-    double ithrottle = raw_throttle / 127.0;
-    double iturn = raw_turn / 127.0;
+    // int raw_throttle =
+    // controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); int raw_turn =
+    // controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X); double
+    // ithrottle = raw_throttle / 127.0; double iturn = raw_turn / 127.0; Cheesy
+    // Drive (Arcade Mode) auto [leftPower, rightPower] = cheesyDrive(ithrottle,
+    // iturn);
+
+    int leftPower = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+    int rightPower = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
 
     int intakeOn = 0;
     if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
@@ -42,23 +48,22 @@ void opcontrol() {
       top_motor.move(-intakeOn * 127);
       break;
     case 2:
-      middle_motor.move(-intakeOn * 127);
+      middle_motor.move(intakeOn * 127);
       top_motor.move(intakeOn * 127);
       break;
     case 3:
       middle_motor.move(intakeOn * 127);
-      top_motor.move(intakeOn * 127);
+      top_motor.move(-intakeOn * 127);
       break;
     case 4:
-      middle_motor.move(0);
-      top_motor.move(intakeOn * 127);
+      middle_motor.move(-intakeOn * 127);
+      top_motor.move(0);
       break;
     }
 
     // Makes the robot drive
-    auto [leftPower, rightPower] = cheesyDrive(ithrottle, iturn);
-    left_mg.move(leftPower * -127);
-    right_mg.move(rightPower * -127);
+    left_mg.move(-leftPower);
+    right_mg.move(-rightPower);
 
     pros::delay(20);
   }

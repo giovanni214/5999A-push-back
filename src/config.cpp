@@ -20,5 +20,5 @@ pros::Rotation horizontal_encoder(15);
 pros::Rotation vertical_encoder(19);
 
 pros::Motor intake_motor(-20, pros::v5::MotorGears::green);
-pros::Motor middle_motor(9, pros::v5::MotorGears::green);
-pros::Motor top_motor(7, pros::v5::MotorGears::green);
+pros::Motor top_motor(9, pros::v5::MotorGears::green);
+pros::Motor middle_motor(7, pros::v5::MotorGears::green);

@@ -3,6 +3,11 @@
 PIDController::PIDController(double p, double i, double d)
     : Kp(p), Ki(i), Kd(d), previousError(0), integral(0) {}
 
+void PIDController::reset() {
+  previousError = 0;
+  integral = 0;
+}
+
 double PIDController::calculateControlSignal(double setpoint,
                                              double measuredValue) {
   double error = setpoint - measuredValue;

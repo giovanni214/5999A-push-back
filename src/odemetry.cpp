@@ -1,6 +1,6 @@
+#include "config.h"
 #include "pros/rtos.hpp"
 #include <math.h>
-#include "config.h"
 
 constexpr double wheelDiameter = 2;                         // inches
 constexpr double wheelCircumference = wheelDiameter * M_PI; // C = D * pi
@@ -11,6 +11,7 @@ constexpr double DEG_TO_RAD = M_PI / 180.0;
 volatile double globalX = 0.0;
 volatile double globalY = 0.0;
 volatile double globalAngle = 0.0; // In degrees
+volatile bool resetAngle = false;
 
 /**
  * Task for Odometry Calculations.
@@ -27,6 +28,16 @@ void odometry_task() {
   double lastAngle = imu.get_rotation();
 
   while (true) {
+    if (resetAngle) {
+      resetAngle = false;
+      imu.reset(false);
+      imu.set_rotation(0);
+    }
+
+    if (imu.is_calibrating()) {
+      pros::delay(20);
+    }
+
     // Get current sensor values
     double currentVertical = vertical_encoder.get_position() / -100.0;
     double currentHorizontal = horizontal_encoder.get_position() / -100.0;
