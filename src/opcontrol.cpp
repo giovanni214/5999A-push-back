@@ -2,9 +2,14 @@
 // #include "drive.h" needed for cheesy drive
 #include "main.h" // always include main.h
 #include "pros/misc.h"
+#include "pros/rtos.hpp"
 
 void opcontrol() {
   int mode = 0;
+  //lock driving if still calibrating
+  while (imu.is_calibrating())
+    pros::delay(50);
+
   while (true) {
     // int raw_throttle =
     // controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); int raw_turn =
@@ -24,15 +29,22 @@ void opcontrol() {
 
     intake_motor.move(intakeOn * 127);
 
+    // working on it
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
       mode = (mode == 1) ? 0 : 1; // If mode is 1, set to 0, otherwise set to 1
     }
+
+    // output in the middle
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
       mode = (mode == 2) ? 0 : 2;
     }
+
+    // output from the top
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_UP)) {
       mode = (mode == 3) ? 0 : 3;
     }
+
+    // put into storage
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT)) {
       mode = (mode == 4) ? 0 : 4;
     }
@@ -42,20 +54,25 @@ void opcontrol() {
       top_motor.move(0);
       middle_motor.move(0);
       break;
-    // Move block to back/storage
-    case 1:
-      middle_motor.move(0); // Explicitly stop the middle motor
-      top_motor.move(-intakeOn * 127);
+
+    case 1: // Move block to back/storage from TOP
+      if (distance_sensor.get_distance() < 180) {
+        middle_motor.move(127);
+        top_motor.move(127);
+      } else {
+        middle_motor.move(intakeOn * 127);
+        top_motor.move(-intakeOn * 127);
+      }
       break;
-    case 2:
+    case 2: // output in the middle
       middle_motor.move(intakeOn * 127);
       top_motor.move(intakeOn * 127);
       break;
-    case 3:
+    case 3: // output from the top
       middle_motor.move(intakeOn * 127);
       top_motor.move(-intakeOn * 127);
       break;
-    case 4:
+    case 4: // Move block to back/storage from BOTTOM
       middle_motor.move(-intakeOn * 127);
       top_motor.move(0);
       break;

@@ -30,8 +30,8 @@ void odometry_task() {
   while (true) {
     if (resetAngle) {
       resetAngle = false;
-      imu.reset(false);
       imu.set_rotation(0);
+      lastAngle = 0;
     }
 
     if (imu.is_calibrating()) {

@@ -6,6 +6,7 @@
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
 #include "pros/rotation.hpp"
+#include "pros/distance.hpp"
 
 extern pros::Controller controller;
 
@@ -17,6 +18,7 @@ extern pros::Motor middle_motor;
 extern pros::Motor top_motor;
 
 extern pros::Imu imu;
+extern pros::Distance distance_sensor;
 extern pros::Rotation horizontal_encoder;
 extern pros::Rotation vertical_encoder;
 
