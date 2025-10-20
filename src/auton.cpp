@@ -55,6 +55,13 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
   }
 }
 
+void moveForward(PIDController &PID, double targetDistance,
+                 double tolerance = 1, bool debugMode = true) {
+  if (true) {
+    
+  }
+}
+
 void resetIMU(PIDController &pid) {
   pros::delay(500);
   pid.reset();

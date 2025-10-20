@@ -1,12 +1,12 @@
 #include "config.h"
-// #include "drive.h" needed for cheesy drive
+// #include "drive.h" // needed for cheesy drive
 #include "main.h" // always include main.h
 #include "pros/misc.h"
 #include "pros/rtos.hpp"
 
 void opcontrol() {
   int mode = 0;
-  //lock driving if still calibrating
+  // lock driving if still calibrating
   while (imu.is_calibrating())
     pros::delay(50);
 
@@ -28,6 +28,11 @@ void opcontrol() {
       intakeOn = -1;
 
     intake_motor.move(intakeOn * 127);
+
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
+      gate_pneumatic.toggle();
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+      descore_pneumatic.toggle();
 
     // working on it
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
@@ -56,6 +61,7 @@ void opcontrol() {
       break;
 
     case 1: // Move block to back/storage from TOP
+      gate_pneumatic.extend();
       if (distance_sensor.get_distance() < 180) {
         middle_motor.move(127);
         top_motor.move(127);
@@ -73,6 +79,7 @@ void opcontrol() {
       top_motor.move(-intakeOn * 127);
       break;
     case 4: // Move block to back/storage from BOTTOM
+      gate_pneumatic.retract();
       middle_motor.move(-intakeOn * 127);
       top_motor.move(0);
       break;
