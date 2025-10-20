@@ -57,9 +57,12 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
 
 void moveForward(PIDController &PID, double targetDistance,
                  double tolerance = 1, bool debugMode = true) {
-  if (true) {
-    
-  }
+  //TODO move robot forward x amount of inches
+}
+
+void turnAndMoveToPoint(double x, double y) {
+  //TODO turn robot using turnToAngle, finding angle with atan2
+  //TODO move robot x amount of inches. Use pythagorean theorem.
 }
 
 void resetIMU(PIDController &pid) {
