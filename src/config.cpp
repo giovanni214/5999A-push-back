@@ -26,6 +26,7 @@ pros::Rotation vertical_encoder(19);
 
 pros::adi::Pneumatics gate_pneumatic(2, true);
 pros::adi::Pneumatics descore_pneumatic(1, false);
+pros::adi::Pneumatics matchload_pneumatic(3, false);
 
 pros::Motor intake_motor(-20, pros::v5::MotorGears::green);
 pros::Motor top_motor(9, pros::v5::MotorGears::green);

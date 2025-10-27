@@ -1,8 +1,16 @@
 #include "config.h"
 // #include "drive.h" // needed for cheesy drive
-#include "main.h" // always include main.h
+#include "auton.h"
+#include "main.h"     // always include main.h
+#include "odometry.h" // Provides globalX, globalY, globalAngle
+#include "pid.h"
 #include "pros/misc.h"
 #include "pros/rtos.hpp"
+#include <cmath>
+
+volatile double p = 50;
+volatile double i = 1;
+volatile double d = 0;
 
 void opcontrol() {
   int mode = 0;
@@ -33,6 +41,8 @@ void opcontrol() {
       gate_pneumatic.toggle();
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
       descore_pneumatic.toggle();
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X))
+      matchload_pneumatic.toggle();
 
     // working on it
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
@@ -88,6 +98,28 @@ void opcontrol() {
     // Makes the robot drive
     left_mg.move(-leftPower);
     right_mg.move(-rightPower);
+
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) {
+      PIDController movingPID(p, i, d);
+      PIDController turningPID(85, 0.001, 10); // set in stone for now
+      globalX = 0;
+      globalY = 0;
+      resetAngle = true;
+      if (d >= 250) {
+        d = 60;
+        p += 10;
+      } else {
+        d += 10;
+      }
+
+      moveForward(movingPID, 12, 0.5, true);
+      turnToAngle(turningPID, 0);
+
+      moveForward(movingPID, 24, 0.5, true);
+      turnToAngle(turningPID, 0);
+
+      moveForward(movingPID, 48, 0.5, true);
+    }
 
     pros::delay(20);
   }
