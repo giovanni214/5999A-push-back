@@ -18,6 +18,9 @@ void opcontrol() {
   while (imu.is_calibrating())
     pros::delay(50);
 
+  int maxUnloadTime = 20;
+  int currentUnloadTime = 0;
+  int nextLoopTime = 10;
   while (true) {
     // int raw_throttle =
     // controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); int raw_turn =
@@ -99,9 +102,10 @@ void opcontrol() {
     left_mg.move(-leftPower);
     right_mg.move(-rightPower);
 
-    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) {
+    // auton testing code
+    if (false) {
       PIDController movingPID(p, i, d);
-      PIDController turningPID(85, 0.001, 10); // set in stone for now
+      PIDController turningPID(200, 1, 0); // set in stone for now
       globalX = 0;
       globalY = 0;
       resetAngle = true;
@@ -112,15 +116,34 @@ void opcontrol() {
         d += 10;
       }
 
-      moveForward(movingPID, 12, 0.5, true);
-      turnToAngle(turningPID, 0);
+      turnToAngle(turningPID, 45, 1, true);
+      pros::delay(1000);
 
-      moveForward(movingPID, 24, 0.5, true);
-      turnToAngle(turningPID, 0);
+      resetAngle = true;
+      turnToAngle(turningPID, 25, 1, true);
+      pros::delay(1000);
 
-      moveForward(movingPID, 48, 0.5, true);
+      resetAngle = true;
+      turnToAngle(turningPID, 10, 1, true);
+      pros::delay(1000);
+
+      resetAngle = true;
+      turnToAngle(turningPID, 10, 1, true);
     }
 
-    pros::delay(20);
+    if(currentUnloadTime >= maxUnloadTime) {
+      currentUnloadTime = 0;
+      matchload_pneumatic.toggle();
+    } else if(currentUnloadTime != 0) {
+      currentUnloadTime += nextLoopTime;
+    }
+
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y) &&
+        matchload_pneumatic.is_extended() && currentUnloadTime == 0) {
+      currentUnloadTime += nextLoopTime;
+      matchload_pneumatic.toggle();
+    }
+
+    pros::delay(nextLoopTime);
   }
 }
