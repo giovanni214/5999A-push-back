@@ -8,7 +8,7 @@
 #include "pros/rtos.hpp"
 #include <cmath>
 
-volatile double p = 50;
+volatile double p = 200;
 volatile double i = 1;
 volatile double d = 0;
 
@@ -18,9 +18,10 @@ void opcontrol() {
   while (imu.is_calibrating())
     pros::delay(50);
 
-  int maxUnloadTime = 20;
+  int maxUnloadTime = 50;
   int currentUnloadTime = 0;
   int nextLoopTime = 10;
+
   while (true) {
     // int raw_throttle =
     // controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); int raw_turn =
@@ -103,38 +104,21 @@ void opcontrol() {
     right_mg.move(-rightPower);
 
     // auton testing code
-    if (false) {
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1)) {
       PIDController movingPID(p, i, d);
       PIDController turningPID(200, 1, 0); // set in stone for now
       globalX = 0;
       globalY = 0;
       resetAngle = true;
-      if (d >= 250) {
-        d = 60;
-        p += 10;
-      } else {
-        d += 10;
-      }
 
-      turnToAngle(turningPID, 45, 1, true);
-      pros::delay(1000);
-
-      resetAngle = true;
-      turnToAngle(turningPID, 25, 1, true);
-      pros::delay(1000);
-
-      resetAngle = true;
-      turnToAngle(turningPID, 10, 1, true);
-      pros::delay(1000);
-
-      resetAngle = true;
-      turnToAngle(turningPID, 10, 1, true);
+      intake_motor.move(127);
+      moveForward(movingPID, 10);
     }
 
-    if(currentUnloadTime >= maxUnloadTime) {
+    if (currentUnloadTime >= maxUnloadTime) {
       currentUnloadTime = 0;
       matchload_pneumatic.toggle();
-    } else if(currentUnloadTime != 0) {
+    } else if (currentUnloadTime != 0) {
       currentUnloadTime += nextLoopTime;
     }
 

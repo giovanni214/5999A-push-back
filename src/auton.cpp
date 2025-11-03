@@ -21,11 +21,10 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
     pros::delay(20);
   }
 
-  PID.reset(); // Reset PID at the start
   int count = 0;
 
   while (std::fabs(shortestAngleDiff(targetAngle, globalAngle)) > tolerance) {
-    if (count > 3000) // 30-second timeout
+    if (count > 3000) // 3-second timeout
       break;
 
     // Calculate the error using shortestAngleDiff
@@ -33,7 +32,7 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
 
     // Feed this error to the PID. We want to drive the error to 0.
     // Setpoint = 0, Measured = -error
-    double control = PID.calculateControlSignal(0, -error);
+    double control = PID.calculateControlSignal(0, error);
 
     // Cap control signal
     if (control > 12000)
@@ -42,8 +41,8 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
       control = -12000;
 
     // A positive control signal turns LEFT (CCW)
-    left_mg.move_voltage(-control);
-    right_mg.move_voltage(control);
+    left_mg.move_voltage(control);
+    right_mg.move_voltage(-control);
     count += 10;
     pros::delay(10);
   }
@@ -80,7 +79,7 @@ void moveForward(PIDController &movePID, double targetDistance,
 
   int count = 0;
   while (std::fabs(targetDistance - currentDistance) > tolerance) {
-    if (count > 10000) // 10-second timeout
+    if (count > 5000) // 10-second timeout
       break;
 
     // --- Distance PID Calculation (using odometry) ---
@@ -127,36 +126,6 @@ void moveForward(PIDController &movePID, double targetDistance,
   }
 }
 
-void turnAndMoveToPoint(PIDController &turnPID, PIDController &movePID,
-                        double x, double y, double turnTolerance = 1,
-                        double moveTolerance = 1, bool debugMode = true) {
-
-  // --- 1. Calculate and Turn ---
-
-  // Get current position from odometry task
-  double deltaX = x - globalX;
-  double deltaY = y - globalY;
-
-  // Calculate target angle using atan2
-  double targetAngle = atan2(deltaY, deltaX) * (180.0 / M_PI);
-
-  // Call the turnToAngle function
-  turnToAngle(turnPID, targetAngle, turnTolerance, debugMode);
-
-  // --- 2. Calculate and Move ---
-
-  // Recalculate deltas in case robot drifted during turn
-  deltaX = x - globalX;
-  deltaY = y - globalY;
-
-  // Calculate distance using Pythagorean theorem
-  double distance = std::sqrt(std::pow(deltaX, 2) + std::pow(deltaY, 2));
-
-  // Call the moveForward function.
-  // We pass turnPID again for heading correction.
-  moveForward(movePID, distance, moveTolerance, debugMode);
-}
-
 void resetIMU() {
   pros::delay(1000);
   imu.set_rotation(0); // force it here
@@ -194,11 +163,52 @@ void testTune() {
   }
 }
 
+double radiansToDegrees(double radians) { return radians * (180.0 / M_PI); }
+
+// Returns the angle (in degrees) from (x1, y1) to (x2, y2)
+double getAngle(double x1, double y1, double x2, double y2) {
+  double radians = std::atan2(y2 - y1, x2 - x1);
+  return 90 - radiansToDegrees(radians);
+}
+
+double getDistance(double x1, double y1, double x2, double y2) {
+  return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2));
+}
+
+void turnAndMoveToPoint(PIDController &turnPID, PIDController &movePID,
+                        double newX, double newY) {
+  double turningAngle = getAngle(globalX, globalY, newX, newY);
+  double moveDistance = getDistance(globalX, globalY, newX, newY);
+
+  turnToAngle(turnPID, turningAngle, 1, false);
+  moveForward(movePID, moveDistance, 0.5, false);
+}
+
 void autonomous() {
   // --- Example of how to use the new functions ---
   // You must define these PID controllers with gains you have tuned.
-  PIDController movingPID(50, 0, 0);
+  while (imu.is_calibrating())
+    pros::delay(50);
 
-  resetIMU();
-  moveForward(movingPID, 24);
+  globalX = 57.5;
+  globalY = 30.75;
+  PIDController movingPID(200, 1, 0);
+  PIDController smallTurningPID(250, 1, 0);   // for small angles
+  PIDController bigTurningPID(85, 0.001, 10); // for big angles
+
+  turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66);
+  pros::delay(1000);
+
+  double centerAngle = getAngle(globalX, globalY, 72, 72);
+
+  PIDController smallTurn(120, 0.001, 10);
+  turnToAngle(smallTurn, globalAngle + centerAngle);
+
+  double moveDistance = getDistance(globalX, globalY, 61, 62);
+  controller.set_text(0, 0, std::to_string(moveDistance));
+  
+  moveForward(movingPID, moveDistance);
+
+  middle_motor.move(1 * 127);
+  top_motor.move(1 * 127);
 }

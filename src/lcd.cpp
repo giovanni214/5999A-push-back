@@ -1,7 +1,6 @@
 #include "config.h"
 #include "liblvgl/llemu.hpp"
 #include "odometry.h"
-#include "opcontrol.h"
 #include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
 
@@ -30,7 +29,7 @@ void lcd_loop_task() {
       pros::lcd::print(0, "X: %.2f in", globalX);
       pros::lcd::print(1, "Y: %.2f in", globalY);
       pros::lcd::print(2, "Angle: %.2f deg", globalAngle);
-      pros::lcd::print(4, "P: %f, I: %f, D: %f", p, i, d);
+
     }
 
     pros::delay(50);

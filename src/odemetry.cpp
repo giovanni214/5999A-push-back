@@ -39,8 +39,8 @@ void odometry_task() {
     }
 
     // Get current sensor values
-    double currentVertical = vertical_encoder.get_position() / -100.0;
-    double currentHorizontal = horizontal_encoder.get_position() / -100.0;
+    double currentVertical = vertical_encoder.get_position() / 100.0;
+    double currentHorizontal = horizontal_encoder.get_position() / 100.0;
     globalAngle = imu.get_rotation();
 
     // Calculate the delta in sensor values
@@ -53,7 +53,7 @@ void odometry_task() {
     double avgAngleRad = (lastAngle + deltaAngle * 0.5) * DEG_TO_RAD;
 
     // Rotate the local movement vector to the global frame
-    double deltaX = (deltaHorizontal * std::cos(avgAngleRad)) -
+    double deltaX = (deltaHorizontal * std::cos(avgAngleRad)) +
                     (deltaVertical * std::sin(avgAngleRad));
     double deltaY = (deltaHorizontal * std::sin(avgAngleRad)) +
                     (deltaVertical * std::cos(avgAngleRad));
