@@ -1,9 +1,11 @@
 #include "config.h"
 #include "main.h"
+#include "motors_loop.h"
 #include "odometry.h" // Provides globalX, globalY, globalAngle
 #include "pid.h"
 #include "pros/rtos.hpp"
 #include <math.h> // Provides M_PI, atan2, sqrt, pow
+
 
 // This constant is no longer needed for moveForward,
 // as we are using odometry for distance.
@@ -65,7 +67,7 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
 }
 
 void moveForward(PIDController &movePID, double targetDistance,
-                 double tolerance = 1, bool debugMode = true) {
+                 double tolerance = 1, bool debugMode = true, int timeout=5000) {
 
   // 1. Set targets and store initial state
   double targetHeading = globalAngle; // Target heading is the current heading
@@ -79,7 +81,7 @@ void moveForward(PIDController &movePID, double targetDistance,
 
   int count = 0;
   while (std::fabs(targetDistance - currentDistance) > tolerance) {
-    if (count > 5000) // 10-second timeout
+    if (count > timeout) // 10-second timeout
       break;
 
     // --- Distance PID Calculation (using odometry) ---
@@ -196,6 +198,8 @@ void autonomous() {
   PIDController smallTurningPID(250, 1, 0);   // for small angles
   PIDController bigTurningPID(85, 0.001, 10); // for big angles
 
+  intakeDir = 1;
+  mode = 1;
   turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66);
   pros::delay(1000);
 
@@ -206,9 +210,9 @@ void autonomous() {
 
   double moveDistance = getDistance(globalX, globalY, 61, 62);
   controller.set_text(0, 0, std::to_string(moveDistance));
-  
-  moveForward(movingPID, moveDistance);
 
-  middle_motor.move(1 * 127);
-  top_motor.move(1 * 127);
+  moveForward(movingPID, moveDistance, 1, false, 2000);
+
+  mode = 2; //output to middle
+  gate_pneumatic.retract();
 }

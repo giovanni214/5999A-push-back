@@ -1,5 +1,4 @@
 #include "config.h"
-#include "liblvgl/llemu.hpp"
 #include "odometry.h"
 #include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
@@ -10,13 +9,7 @@
  * Purpose is to display the robot's current pose.
  */
 void lcd_loop_task() {
-  pros::lcd::initialize();
-
-  // Check if the screen is working before trying to print
-  while (!pros::lcd::is_initialized()) {
-    pros::delay(50);
-  }
-
+  // Check if the screen is working before trying to prin
   int dots = 1;
   const char *dotString = "..."; // max dots to print
   while (true) {
@@ -29,9 +22,12 @@ void lcd_loop_task() {
       pros::lcd::print(0, "X: %.2f in", globalX);
       pros::lcd::print(1, "Y: %.2f in", globalY);
       pros::lcd::print(2, "Angle: %.2f deg", globalAngle);
-
     }
 
+    // pros::c::optical_rgb_s_t rgb = optical_sensor.get_rgb();
+    // pros::lcd::print(3, "R: %d", (int)(rgb.red * 255));
+    // pros::lcd::print(4, "G: %d", (int)(rgb.green * 255));
+    // pros::lcd::print(5, "B: %d", (int)(rgb.blue * 255));
     pros::delay(50);
   }
 }

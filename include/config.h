@@ -7,8 +7,8 @@
 #include "pros/misc.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
+#include "pros/optical.hpp"
 #include "pros/rotation.hpp"
-
 
 extern pros::Controller controller;
 
@@ -20,6 +20,7 @@ extern pros::Motor middle_motor;
 extern pros::Motor top_motor;
 
 extern pros::Imu imu;
+extern pros::Optical optical_sensor;
 extern pros::Distance distance_sensor;
 extern pros::Rotation horizontal_encoder;
 extern pros::Rotation vertical_encoder;

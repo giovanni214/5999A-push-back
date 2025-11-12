@@ -6,6 +6,7 @@
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
 #include "pros/rotation.hpp"
+#include "pros/optical.hpp"
 
 
 // Defines controller
@@ -18,6 +19,7 @@ pros::MotorGroup right_mg({-17, -18, -16}, pros::MotorGearset::blue);
 
 // create the imu (inertial sensor)
 pros::Imu imu(11);
+pros::Optical optical_sensor(10);
 
 pros::Distance distance_sensor(8);
 
