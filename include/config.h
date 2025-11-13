@@ -28,5 +28,6 @@ extern pros::Rotation vertical_encoder;
 extern pros::adi::Pneumatics gate_pneumatic;
 extern pros::adi::Pneumatics descore_pneumatic;
 extern pros::adi::Pneumatics matchload_pneumatic;
+extern pros::adi::Pneumatics punch_pneumatic;
 
 #endif // CONFIG_H

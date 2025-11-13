@@ -6,7 +6,6 @@
 #include "pros/rtos.hpp"
 #include <cmath>
 
-
 void opcontrol() {
   // lock driving if still calibrating
   while (imu.is_calibrating())
@@ -14,6 +13,9 @@ void opcontrol() {
 
   int maxUnloadTime = 50;
   int currentUnloadTime = 0;
+
+  int maxPunchTime = 100;
+  int currentPunchTime = 0;
   int nextLoopTime = 10;
 
   while (true) {
@@ -35,13 +37,13 @@ void opcontrol() {
 
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
       gate_pneumatic.toggle();
-    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
-      descore_pneumatic.toggle();
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X))
+      descore_pneumatic.toggle();
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
       matchload_pneumatic.toggle();
 
     // working on it
-    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT)) {
       mode = (mode == 1) ? 0 : 1; // If mode is 1, set to 0, otherwise set to 1
     }
 
@@ -56,7 +58,7 @@ void opcontrol() {
     }
 
     // put into storage
-    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT)) {
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
       mode = (mode == 4) ? 0 : 4;
     }
 
@@ -64,6 +66,7 @@ void opcontrol() {
     left_mg.move(-leftPower);
     right_mg.move(-rightPower);
 
+    //match load pnuematic pulser
     if (currentUnloadTime >= maxUnloadTime) {
       currentUnloadTime = 0;
       matchload_pneumatic.toggle();
@@ -75,6 +78,20 @@ void opcontrol() {
         matchload_pneumatic.is_extended() && currentUnloadTime == 0) {
       currentUnloadTime += nextLoopTime;
       matchload_pneumatic.toggle();
+    }
+
+    //puncher inside of basket pulser
+    if (currentPunchTime >= maxPunchTime) {
+      currentPunchTime = 0;
+      punch_pneumatic.toggle();
+    } else if (currentPunchTime != 0) {
+      currentPunchTime += nextLoopTime;
+    }
+
+    if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1) &&
+        !punch_pneumatic.is_extended() && currentPunchTime == 0) {
+      currentPunchTime += nextLoopTime;
+      punch_pneumatic.toggle();
     }
 
     pros::delay(nextLoopTime);

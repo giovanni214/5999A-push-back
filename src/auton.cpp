@@ -6,10 +6,62 @@
 #include "pros/rtos.hpp"
 #include <math.h> // Provides M_PI, atan2, sqrt, pow
 
+pros::c::optical_rgb_s_t hsv_to_rgb(double h, double s, double v) {
+  pros::c::optical_rgb_s_t rgb;
 
-// This constant is no longer needed for moveForward,
-// as we are using odometry for distance.
-// const double TICKS_PER_INCH = 71.62;
+  double c = v * s;
+  double x = c * (1 - fabs(fmod(h / 60.0, 2) - 1));
+  double m = v - c;
+
+  double r, g, b;
+
+  if (h < 60) {
+    r = c, g = x, b = 0;
+  } else if (h < 120) {
+    r = x, g = c, b = 0;
+  } else if (h < 180) {
+    r = 0, g = c, b = x;
+  } else if (h < 240) {
+    r = 0, g = x, b = c;
+  } else if (h < 300) {
+    r = x, g = 0, b = c;
+  } else {
+    r = c, g = 0, b = x;
+  }
+
+  // --- FIX IS HERE ---
+  // Return the 0.0-1.0 range, not the 0-255 range.
+  rgb.red = (r + m);
+  rgb.green = (g + m);
+  rgb.blue = (b + m);
+  // -------------------
+
+  return rgb;
+}
+
+std::string getColor() {
+  // Calibration constants based on your measurements
+  const double MAX_BRIGHTNESS = 0.012;
+  const double MAX_SATURATION = 0.286;
+
+  double hue = optical_sensor.get_hue();
+  double sat = optical_sensor.get_saturation();
+  double val = optical_sensor.get_brightness();
+
+  // Normalize to 0-1 range based on observed maximums
+  sat = std::fmin(sat / MAX_SATURATION, 1.0);
+  val = std::fmin(val / MAX_BRIGHTNESS, 1.0);
+
+  pros::c::optical_rgb_s_t rgb = hsv_to_rgb(hue, sat, val);
+
+  if (rgb.red * 255 > 130) {
+    return "RED";
+  } else if (rgb.blue * 255 > 130) {
+    return "BLUE";
+  } else {
+    return "NONE";
+  }
+}
 
 static double shortestAngleDiff(double target, double current) {
   // returns difference target - current mapped to (-180, 180]
@@ -18,7 +70,7 @@ static double shortestAngleDiff(double target, double current) {
 }
 
 void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
-                 bool debugMode = true) {
+                 bool debugMode = true, int timeout = 3000) {
   while (imu.is_calibrating()) {
     pros::delay(20);
   }
@@ -26,7 +78,7 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
   int count = 0;
 
   while (std::fabs(shortestAngleDiff(targetAngle, globalAngle)) > tolerance) {
-    if (count > 3000) // 3-second timeout
+    if (count > timeout) // 3-second timeout
       break;
 
     // Calculate the error using shortestAngleDiff
@@ -67,7 +119,8 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
 }
 
 void moveForward(PIDController &movePID, double targetDistance,
-                 double tolerance = 1, bool debugMode = true, int timeout=5000) {
+                 double tolerance = 1, bool debugMode = true,
+                 int timeout = 5000) {
 
   // 1. Set targets and store initial state
   double targetHeading = globalAngle; // Target heading is the current heading
@@ -85,12 +138,13 @@ void moveForward(PIDController &movePID, double targetDistance,
       break;
 
     // --- Distance PID Calculation (using odometry) ---
-    // Calculate distance traveled from the start point
-    currentDistance = std::sqrt(std::pow(globalX - startX, 2) +
-                                std::pow(globalY - startY, 2));
+    double dx = globalX - startX;
+    double dy = globalY - startY;
+    double travelDir = targetHeading * M_PI / 180.0; // radians
+    currentDistance = dx * std::cos(travelDir) + dy * std::sin(travelDir);
 
-    double error = targetDistance - currentDistance;
-    double moveControl = movePID.calculateControlSignal(0, -error);
+    double moveControl =
+        movePID.calculateControlSignal(targetDistance, currentDistance);
 
     // --- Cap signals ---
     if (moveControl > 12000)
@@ -136,35 +190,6 @@ void resetIMU() {
 
 void resetPID(PIDController &pid) { pid.reset(); }
 
-void testTune() {
-  PIDController turningPID(85, 0.001, 10); // set in stone for now
-
-  for (int move_p = 200; move_p < 300; move_p += 10) {
-    for (int move_d = 50; move_d < 100; move_d += 5) {
-      PIDController movingPID(move_p, 0.001, move_d);
-
-      resetIMU();
-      resetPID(movingPID);
-      resetPID(turningPID);
-      moveForward(movingPID, 12, 1, true);
-
-      resetIMU();
-      resetPID(movingPID);
-      resetPID(turningPID);
-      moveForward(movingPID, 24, 1, true);
-
-      resetIMU();
-      resetPID(movingPID);
-      resetPID(turningPID);
-      moveForward(movingPID, 48, 1, true);
-
-      resetIMU();
-      resetPID(turningPID);
-      turnToAngle(turningPID, 180);
-    }
-  }
-}
-
 double radiansToDegrees(double radians) { return radians * (180.0 / M_PI); }
 
 // Returns the angle (in degrees) from (x1, y1) to (x2, y2)
@@ -178,11 +203,12 @@ double getDistance(double x1, double y1, double x2, double y2) {
 }
 
 void turnAndMoveToPoint(PIDController &turnPID, PIDController &movePID,
-                        double newX, double newY) {
+                        double newX, double newY, int maxTurnTime = 3000,
+                        int maxMoveTime = 5000) {
   double turningAngle = getAngle(globalX, globalY, newX, newY);
   double moveDistance = getDistance(globalX, globalY, newX, newY);
 
-  turnToAngle(turnPID, turningAngle, 1, false);
+  turnToAngle(turnPID, turningAngle, 1, false, maxTurnTime);
   moveForward(movePID, moveDistance, 0.5, false);
 }
 
@@ -200,8 +226,7 @@ void autonomous() {
 
   intakeDir = 1;
   mode = 1;
-  turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66);
-  pros::delay(1000);
+  turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66, 1000, 4000);
 
   double centerAngle = getAngle(globalX, globalY, 72, 72);
 
@@ -209,10 +234,26 @@ void autonomous() {
   turnToAngle(smallTurn, globalAngle + centerAngle);
 
   double moveDistance = getDistance(globalX, globalY, 61, 62);
-  controller.set_text(0, 0, std::to_string(moveDistance));
+  moveForward(movingPID, moveDistance, 1, false, 1000);
 
-  moveForward(movingPID, moveDistance, 1, false, 2000);
+  mode = 2; // output to middle
 
-  mode = 2; //output to middle
-  gate_pneumatic.retract();
+  int giveUpTime = 2000;
+  int timeTaken = 0;
+  while (getColor() == "NONE" || timeTaken >= giveUpTime) {
+    controller.set_text(0, 0, getColor());
+    gate_pneumatic.retract();
+    timeTaken += 20;
+    pros::delay(20);
+  }
+
+  controller.set_text(0, 0, getColor());
+  gate_pneumatic.extend();
+  pros::delay(1500);
+
+  moveDistance = getDistance(globalX, globalY, 30, 30);
+  moveForward(movingPID, -5);
+
+  
+  // turnToAngle(smallTurningPID, 0, 1, false, 2000);
 }
