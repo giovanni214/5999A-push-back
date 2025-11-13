@@ -1,4 +1,5 @@
 #include "config.h"
+#include "liblvgl/misc/lv_text.h"
 #include "main.h"
 #include "motors_loop.h"
 #include "odometry.h" // Provides globalX, globalY, globalAngle
@@ -40,27 +41,19 @@ pros::c::optical_rgb_s_t hsv_to_rgb(double h, double s, double v) {
 }
 
 std::string getColor() {
-  // Calibration constants based on your measurements
-  const double MAX_BRIGHTNESS = 0.012;
-  const double MAX_SATURATION = 0.286;
-
   double hue = optical_sensor.get_hue();
-  double sat = optical_sensor.get_saturation();
-  double val = optical_sensor.get_brightness();
 
-  // Normalize to 0-1 range based on observed maximums
-  sat = std::fmin(sat / MAX_SATURATION, 1.0);
-  val = std::fmin(val / MAX_BRIGHTNESS, 1.0);
-
-  pros::c::optical_rgb_s_t rgb = hsv_to_rgb(hue, sat, val);
-
-  if (rgb.red * 255 > 130) {
+  // Hue ranges:
+  // Red ~ 0–20 or 340–360
+  // Blue ~ 200–250
+  if ((hue >= 0 && hue <= 20) || (hue >= 340 && hue <= 360)) {
     return "RED";
-  } else if (rgb.blue * 255 > 130) {
-    return "BLUE";
-  } else {
-    return "NONE";
   }
+  if (hue >= 200 && hue <= 250) {
+    return "BLUE";
+  }
+
+  return "UNKNOWN";
 }
 
 static double shortestAngleDiff(double target, double current) {
@@ -74,6 +67,8 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
   while (imu.is_calibrating()) {
     pros::delay(20);
   }
+
+  PID.reset();
 
   int count = 0;
 
@@ -141,7 +136,7 @@ void moveForward(PIDController &movePID, double targetDistance,
     double dx = globalX - startX;
     double dy = globalY - startY;
     double travelDir = targetHeading * M_PI / 180.0; // radians
-    currentDistance = dx * std::cos(travelDir) + dy * std::sin(travelDir);
+    currentDistance = dy * std::cos(travelDir) + dx * std::sin(travelDir);
 
     double moveControl =
         movePID.calculateControlSignal(targetDistance, currentDistance);
@@ -209,7 +204,7 @@ void turnAndMoveToPoint(PIDController &turnPID, PIDController &movePID,
   double moveDistance = getDistance(globalX, globalY, newX, newY);
 
   turnToAngle(turnPID, turningAngle, 1, false, maxTurnTime);
-  moveForward(movePID, moveDistance, 0.5, false);
+  moveForward(movePID, moveDistance, 0.5, false, maxMoveTime);
 }
 
 void autonomous() {
@@ -228,21 +223,26 @@ void autonomous() {
   mode = 1;
   turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66, 1000, 4000);
 
-  double centerAngle = getAngle(globalX, globalY, 72, 72);
+  double centerAngle = getAngle(globalX, globalY, 72, 71);
 
   PIDController smallTurn(120, 0.001, 10);
   turnToAngle(smallTurn, globalAngle + centerAngle);
 
-  double moveDistance = getDistance(globalX, globalY, 61, 62);
+  double moveDistance = getDistance(globalX, globalY, 62, 61);
   moveForward(movingPID, moveDistance, 1, false, 1000);
 
   mode = 2; // output to middle
+  gate_pneumatic.retract();
+  pros::delay(50);
 
   int giveUpTime = 2000;
   int timeTaken = 0;
-  while (getColor() == "NONE" || timeTaken >= giveUpTime) {
-    controller.set_text(0, 0, getColor());
-    gate_pneumatic.retract();
+
+  while (getColor() == "UNKNOWN") {
+    if (timeTaken >= giveUpTime)
+      break;
+
+    punch_pneumatic.toggle();
     timeTaken += 20;
     pros::delay(20);
   }
@@ -252,8 +252,9 @@ void autonomous() {
   pros::delay(1500);
 
   moveDistance = getDistance(globalX, globalY, 30, 30);
-  moveForward(movingPID, -5);
 
+  moveForward(movingPID, -23, 1, false, 2000);
   
-  // turnToAngle(smallTurningPID, 0, 1, false, 2000);
+  bigTurningPID.Kp += 15;
+  turnToAngle(bigTurningPID, 0, 1, false, 2000);
 }
