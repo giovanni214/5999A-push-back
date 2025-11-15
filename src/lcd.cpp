@@ -24,6 +24,9 @@ void lcd_loop_task() {
       pros::lcd::print(2, "Angle: %.2f deg", globalAngle);
     }
 
+    // int opticalDistance = optical_sensor.get_proximity();
+    // pros::lcd::print(4, "Distance: %d", opticalDistance);
+
     pros::delay(50);
   }
 }

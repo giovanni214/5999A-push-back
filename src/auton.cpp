@@ -6,6 +6,7 @@
 #include "pid.h"
 #include "pros/rtos.hpp"
 #include <math.h> // Provides M_PI, atan2, sqrt, pow
+#include <string>
 
 pros::c::optical_rgb_s_t hsv_to_rgb(double h, double s, double v) {
   pros::c::optical_rgb_s_t rgb;
@@ -81,7 +82,7 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
 
     // Feed this error to the PID. We want to drive the error to 0.
     // Setpoint = 0, Measured = -error
-    double control = PID.calculateControlSignal(0, error);
+    double control = PID.calculateControlSignal(0, -error);
 
     // Cap control signal
     if (control > 12000)
@@ -90,8 +91,8 @@ void turnToAngle(PIDController &PID, double targetAngle, double tolerance = 1,
       control = -12000;
 
     // A positive control signal turns LEFT (CCW)
-    left_mg.move_voltage(control);
-    right_mg.move_voltage(-control);
+    left_mg.move_voltage(-control);
+    right_mg.move_voltage(control);
     count += 10;
     pros::delay(10);
   }
@@ -213,23 +214,23 @@ void autonomous() {
   while (imu.is_calibrating())
     pros::delay(50);
 
-  globalX = 57.5;
-  globalY = 30.75;
+  globalX = 60;
+  globalY = 25;
   PIDController movingPID(200, 1, 0);
-  PIDController smallTurningPID(250, 1, 0);   // for small angles
-  PIDController bigTurningPID(85, 0.001, 10); // for big angles
+  PIDController smallTurningPID(120, 1, 20); // for small angles
+  PIDController bigTurningPID(85, 0.01, 10); // for big angles
 
   intakeDir = 1;
   mode = 1;
-  turnAndMoveToPoint(smallTurningPID, movingPID, 48.25, 57.66, 1000, 4000);
+  turnAndMoveToPoint(smallTurningPID, movingPID, 48, 48, 1000, 4000);
 
   double centerAngle = getAngle(globalX, globalY, 72, 71);
 
-  PIDController smallTurn(120, 0.001, 10);
-  turnToAngle(smallTurn, globalAngle + centerAngle);
+  // PIDController smallTurn(120, 0.001, 10);
+  turnToAngle(bigTurningPID, centerAngle, 1, false, 1000);
 
   double moveDistance = getDistance(globalX, globalY, 62, 61);
-  moveForward(movingPID, moveDistance, 1, false, 1000);
+  moveForward(movingPID, 18.5, 0.5, false, 1000);
 
   mode = 2; // output to middle
   gate_pneumatic.retract();
@@ -237,24 +238,35 @@ void autonomous() {
 
   int giveUpTime = 2000;
   int timeTaken = 0;
+  int pnuematicCount = 0;
 
-  while (getColor() == "UNKNOWN") {
+  while (optical_sensor.get_proximity() < 50) {
     if (timeTaken >= giveUpTime)
       break;
 
-    punch_pneumatic.toggle();
+    if (pnuematicCount % 10 == 0) {
+      punch_pneumatic.toggle();
+    }
+
     timeTaken += 20;
+    pnuematicCount++;
     pros::delay(20);
   }
 
-  controller.set_text(0, 0, getColor());
   gate_pneumatic.extend();
+  controller.set_text(0, 0, getColor());
   pros::delay(1500);
 
-  moveDistance = getDistance(globalX, globalY, 30, 30);
+  PIDController longDistance(100, 0.01, 10);
+  moveDistance = getDistance(globalX, globalY, 24, 24);
+  controller.set_text(0, 0, std::to_string(moveDistance));
+  moveForward(longDistance, -moveDistance, 1, false, 4000);
+  pros::delay(50000);
 
-  moveForward(movingPID, -23, 1, false, 2000);
-  
   bigTurningPID.Kp += 15;
-  turnToAngle(bigTurningPID, 0, 1, false, 2000);
+  turnToAngle(bigTurningPID, 0, 1, false, 1000);
+  moveForward(movingPID, 18, 1, false, 1500);
+
+  gate_pneumatic.retract();
+  mode = 3;
 }

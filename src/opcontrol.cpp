@@ -36,7 +36,7 @@ void opcontrol() {
       intakeDir = -1;
 
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
-      gate_pneumatic.toggle();
+      extendGate = !extendGate;
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X))
       descore_pneumatic.toggle();
     if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
@@ -66,7 +66,7 @@ void opcontrol() {
     left_mg.move(-leftPower);
     right_mg.move(-rightPower);
 
-    //match load pnuematic pulser
+    // match load pnuematic pulser
     if (currentUnloadTime >= maxUnloadTime) {
       currentUnloadTime = 0;
       matchload_pneumatic.toggle();
@@ -80,7 +80,7 @@ void opcontrol() {
       matchload_pneumatic.toggle();
     }
 
-    //puncher inside of basket pulser
+    // puncher inside of basket pulser
     if (currentPunchTime >= maxPunchTime) {
       currentPunchTime = 0;
       punch_pneumatic.toggle();

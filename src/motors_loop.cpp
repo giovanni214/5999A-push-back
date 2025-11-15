@@ -3,10 +3,19 @@
 
 volatile int intakeDir = 0;
 volatile int mode = 0;
+volatile bool extendGate = false;
 
 void motor_loop_task() {
   while (true) {
     intake_motor.move(intakeDir * 127);
+
+    if (extendGate)
+      gate_pneumatic.extend();
+    else
+      gate_pneumatic.retract();
+    if (optical_sensor.get_proximity() > 50) {
+      gate_pneumatic.extend();
+    }
 
     switch (mode) {
     case 0:
